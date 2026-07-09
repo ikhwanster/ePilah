@@ -1,0 +1,6 @@
+{
+  "name": "E-Pilah RT 005",
+  "description": "Aplikasi pengelolaan pemilahan sampah warga RT 005 Taman Buaran Indah IV dengan UI Android modern.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
