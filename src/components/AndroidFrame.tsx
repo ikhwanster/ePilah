@@ -32,31 +32,31 @@ export default function AndroidFrame({
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 sm:p-6 md:p-8 font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 md:p-6 lg:p-8 font-sans overflow-x-hidden relative">
       {/* Absolute Decorative Ambient Background Glows */}
       <div className="absolute top-10 left-1/4 w-96 h-96 bg-brand-primary/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Main Container - Desktop Phone mockup or Mobile full-screen */}
-      <div className="w-full max-w-md sm:h-[840px] sm:rounded-[40px] bg-brand-bg text-brand-text flex flex-col relative sm:shadow-[0_24px_50px_-12px_rgba(0,0,0,0.6)] sm:border-[10px] sm:border-slate-800 overflow-hidden">
+      {/* Main Container - Desktop Phone mockup or Mobile full-screen / Responsive Tablet/Desktop layout */}
+      <div className="w-full max-w-5xl md:h-[860px] md:rounded-[32px] bg-brand-bg text-brand-text flex flex-col relative md:shadow-[0_24px_50px_-12px_rgba(0,0,0,0.6)] md:border-[10px] md:border-slate-800 overflow-hidden transition-all duration-300">
         
-        {/* Android Top Notch & Status Bar (Visible on desktop mock & full-screen) */}
+        {/* Android Top Notch & Status Bar (Visible on tablet/desktop mock & full-screen) */}
         <div className="bg-brand-muted text-brand-bg px-6 pt-3 pb-1.5 flex justify-between items-center text-xs font-medium tracking-wide shrink-0 select-none">
           <span className="font-semibold">{time}</span>
           
           {/* Subtle Phone Notch Pin-hole for Camera on screens larger than mobile */}
-          <div className="hidden sm:block absolute left-1/2 -translate-x-1/2 top-2.5 w-4 h-4 bg-slate-900 rounded-full border border-slate-800"></div>
+          <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-2.5 w-4 h-4 bg-slate-900 rounded-full border border-slate-800"></div>
 
           <div className="flex items-center gap-1.5">
             <Signal className="w-3.5 h-3.5 fill-current" />
             <Wifi className="w-3.5 h-3.5" />
-            <Battery className="w-4 h-4 fill-current rotate-90 sm:rotate-0" />
+            <Battery className="w-4 h-4 fill-current rotate-90 md:rotate-0" />
             <span className="text-[10px] font-bold">88%</span>
           </div>
         </div>
 
         {/* Android App Header */}
-        <header className="bg-brand-primary text-white px-4 py-3 shadow-sm shrink-0 relative z-30 flex items-center justify-between">
+        <header className="bg-brand-primary text-white px-6 py-4 shadow-sm shrink-0 relative z-30 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {showBack ? (
               <button
@@ -72,13 +72,13 @@ export default function AndroidFrame({
               </div>
             )}
             <div>
-              <h1 className="font-extrabold text-sm tracking-wide font-display leading-tight">{title}</h1>
+              <h1 className="font-extrabold text-base tracking-wide font-display leading-tight">{title}</h1>
               {subtitle && <p className="text-[10px] text-brand-bg/95 font-light">{subtitle}</p>}
             </div>
           </div>
 
           <div className="flex items-center gap-1">
-            <span className="bg-brand-muted text-brand-bg px-2 py-0.5 rounded-full text-[9px] font-bold border border-brand-primary/30">
+            <span className="bg-brand-muted text-brand-bg px-2.5 py-1 rounded-full text-[10px] font-bold border border-brand-primary/30">
               Blok A - D
             </span>
             <button className="p-1 hover:bg-brand-muted rounded-full transition text-brand-bg">
@@ -87,13 +87,15 @@ export default function AndroidFrame({
           </div>
         </header>
 
-        {/* Main Phone App Screen Area */}
-        <div className="flex-grow overflow-y-auto bg-brand-bg pb-24 relative" id="android-screen-container">
-          {children}
+        {/* Main App Screen Area - grid structured for responsive presentation */}
+        <div className="flex-grow overflow-y-auto bg-brand-bg pb-24 md:pb-6 relative" id="android-screen-container">
+          <div className="max-w-4xl mx-auto w-full">
+            {children}
+          </div>
         </div>
 
-        {/* Android Bottom Navigation Bar Virtual Pill (Only on desktop frame) */}
-        <div className="hidden sm:flex bg-brand-bg justify-center py-2 border-t border-brand-border shrink-0 z-40 select-none">
+        {/* Bottom Bar Simulator for Desktop mockup */}
+        <div className="hidden md:flex bg-brand-bg justify-center py-2 border-t border-brand-border shrink-0 z-40 select-none">
           <div className="w-32 h-1 bg-brand-border rounded-full"></div>
         </div>
       </div>
