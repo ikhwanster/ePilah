@@ -71,9 +71,10 @@ export default function SetorTab({ citizens, onAddSetor, currentUser }: SetorTab
   };
 
   return (
-    <div className="space-y-5 p-4 pb-20">
-      {/* Manual Input Form Container */}
-      <div className="bg-brand-card/75 p-5 rounded-2xl border border-brand-border shadow-sm space-y-4">
+    <div className="p-4 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+        {/* Manual Input Form Container */}
+        <div className="bg-brand-card/75 p-5 rounded-2xl border border-brand-border shadow-sm space-y-4">
         <div>
           <h3 className="font-extrabold text-sm uppercase tracking-wider text-brand-dark font-display">
             Catat Pemilahan & Daur Ulang Mandiri
@@ -227,6 +228,7 @@ export default function SetorTab({ citizens, onAddSetor, currentUser }: SetorTab
             Poin yang dikumpulkan setiap rumah warga akan direkap setiap akhir bulan. 3 Rumah dengan poin tertinggi berhak mendapatkan sticker eksklusif <strong>"Rumah Eco-Asri RT 005"</strong> serta hadiah menarik dari RT!
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

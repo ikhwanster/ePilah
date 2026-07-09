@@ -226,7 +226,7 @@ export default function DashboardTab({
       </div>
 
       {/* Statistics Grid */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Stat 1 */}
         <div className="bg-brand-card/75 p-4 rounded-2xl border border-brand-border shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
@@ -311,7 +311,7 @@ export default function DashboardTab({
       </div>
 
       {/* Grid: Schedule and Feed */}
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Schedule Card with Dynamic Day Lamp Indicator */}
         <div className="bg-brand-card/75 p-5 rounded-2xl border border-brand-border shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-3 border-[#DDE1D2]">

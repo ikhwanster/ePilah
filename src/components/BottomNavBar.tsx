@@ -5,11 +5,12 @@ import { TabId } from '../types';
 interface BottomNavBarProps {
   activeTab: TabId;
   onChangeTab: (tab: TabId) => void;
+  forceShow?: boolean;
 }
 
-export default function BottomNavBar({ activeTab, onChangeTab }: BottomNavBarProps) {
+export default function BottomNavBar({ activeTab, onChangeTab, forceShow = false }: BottomNavBarProps) {
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#E7E9DE] border-t border-[#DDE1D2] py-2.5 px-3 flex justify-around items-center z-50 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] select-none">
+    <div className={`${forceShow ? 'flex' : 'flex md:hidden'} fixed bottom-0 left-0 right-0 bg-[#E7E9DE] border-t border-[#DDE1D2] py-2.5 px-3 justify-around items-center z-50 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] select-none`}>
       
       {/* Home Button */}
       <button 

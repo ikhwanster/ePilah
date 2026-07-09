@@ -40,6 +40,27 @@ export default function App() {
     return localStorage.getItem('epilah_onboarding_completed_rt005') !== 'true';
   });
 
+  // Responsive viewMode state: 'web' (default fluid responsive) or 'mobile' (simulator frame)
+  const [viewMode, setViewMode] = useState<'mobile' | 'web'>(() => {
+    try {
+      const saved = localStorage.getItem('epilah_view_mode');
+      return (saved as 'mobile' | 'web') || 'web';
+    } catch {
+      return 'web';
+    }
+  });
+
+  const handleToggleViewMode = (mode: 'mobile' | 'web') => {
+    setViewMode(mode);
+    localStorage.setItem('epilah_view_mode', mode);
+    triggerToast(
+      mode === 'web'
+        ? 'Beralih ke Tampilan Web Responsif 💻'
+        : 'Beralih ke Simulator Handphone 📱',
+      'bg-[#738E61]'
+    );
+  };
+
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -421,6 +442,10 @@ export default function App() {
       subtitle="Taman Buaran Indah IV • RW 013"
       showBack={activeTab !== 'dashboard'}
       onBackClick={() => setActiveTab('dashboard')}
+      viewMode={viewMode}
+      onToggleViewMode={handleToggleViewMode}
+      activeTab={activeTab}
+      onChangeTab={setActiveTab}
     >
       {/* Hidden upload element */}
       <input 
@@ -501,6 +526,7 @@ export default function App() {
       <BottomNavBar 
         activeTab={activeTab} 
         onChangeTab={setActiveTab} 
+        forceShow={viewMode === 'mobile'}
       />
     </AndroidFrame>
   );
