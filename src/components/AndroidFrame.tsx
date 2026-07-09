@@ -32,13 +32,13 @@ export default function AndroidFrame({
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 sm:p-6 md:p-8 font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 font-sans overflow-x-hidden">
       {/* Absolute Decorative Ambient Background Glows */}
       <div className="absolute top-10 left-1/4 w-96 h-96 bg-brand-primary/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Main Container - Desktop Phone mockup or Mobile full-screen */}
-      <div className="w-full max-w-md sm:h-[840px] sm:rounded-[40px] bg-brand-bg text-brand-text flex flex-col relative sm:shadow-[0_24px_50px_-12px_rgba(0,0,0,0.6)] sm:border-[10px] sm:border-slate-800 overflow-hidden">
+      {/* Main Container - Desktop beautiful card or Mobile full-screen */}
+      <div className="w-full max-w-2xl sm:min-h-[750px] sm:max-h-[920px] sm:rounded-3xl bg-brand-bg text-brand-text flex flex-col relative sm:shadow-[0_24px_50px_-12px_rgba(0,0,0,0.6)] sm:border-[8px] sm:border-slate-800 overflow-hidden transition-all duration-300">
         
         {/* Android Top Notch & Status Bar (Visible on desktop mock & full-screen) */}
         <div className="bg-brand-muted text-brand-bg px-6 pt-3 pb-1.5 flex justify-between items-center text-xs font-medium tracking-wide shrink-0 select-none">
