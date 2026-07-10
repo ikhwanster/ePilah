@@ -124,23 +124,13 @@ export default function DashboardTab({
                   Keluar
                 </button>
               ) : (
-                <div className="flex gap-2">
-                  <button 
-                    onClick={onOpenClaim}
-                    className="text-[9px] text-brand-primary hover:text-brand-dark font-extrabold underline cursor-pointer"
-                    title="Verifikasi rumah Anda"
-                  >
-                    Verifikasi
-                  </button>
-                  <span className="text-brand-border text-[9px]">|</span>
-                  <button 
-                    onClick={onClearProfile}
-                    className="text-[9px] text-brand-muted hover:text-rose-600 font-extrabold underline cursor-pointer"
-                    title="Ganti atau hapus profil rumah"
-                  >
-                    Ganti
-                  </button>
-                </div>
+                <button 
+                  onClick={onClearProfile}
+                  className="text-[9px] text-brand-muted hover:text-rose-600 font-extrabold underline cursor-pointer"
+                  title="Ganti atau hapus profil rumah"
+                >
+                  Ganti
+                </button>
               )}
             </div>
           </div>
@@ -209,14 +199,8 @@ export default function DashboardTab({
           </div>
           <div className="flex gap-2 shrink-0">
             <button 
-              onClick={onOpenClaim}
-              className="bg-brand-primary hover:bg-[#5C724D] text-white font-extrabold text-[10px] px-3 py-2 rounded-xl transition shadow-sm cursor-pointer"
-            >
-              Klaim & Masuk
-            </button>
-            <button 
               onClick={onOpenOnboarding}
-              className="bg-brand-card hover:bg-brand-border text-brand-dark border border-brand-border font-extrabold text-[10px] px-3 py-2 rounded-xl transition shadow-sm cursor-pointer"
+              className="bg-brand-primary hover:bg-[#5C724D] text-white font-extrabold text-[10px] px-3 py-2 rounded-xl transition shadow-sm cursor-pointer"
             >
               Cari Rumah
             </button>

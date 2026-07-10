@@ -87,18 +87,33 @@ export default function ClaimModal({ citizens, isOpen, onClose, onSuccess }: Cla
       }
     } catch (err: any) {
       console.error(err);
-      let message = err.message;
-      if (err.code === 'auth/email-already-in-use') {
-        message = 'Alamat email ini sudah terdaftar. Silakan masuk menggunakan menu Login.';
-      } else if (err.code === 'auth/operation-not-allowed') {
+      const errMsg = err.message || '';
+      let message = errMsg;
+      
+      const isEmailInUse = err.code === 'auth/email-already-in-use' || errMsg.includes('email-already-in-use');
+      const isOperationNotAllowed = err.code === 'auth/operation-not-allowed' || errMsg.includes('operation-not-allowed');
+      const isWeakPassword = err.code === 'auth/weak-password' || errMsg.includes('weak-password');
+      const isInvalidEmail = err.code === 'auth/invalid-email' || errMsg.includes('invalid-email');
+      const isWrongCredential = 
+        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/wrong-password' || 
+        err.code === 'auth/invalid-credential' || 
+        errMsg.includes('user-not-found') || 
+        errMsg.includes('wrong-password') || 
+        errMsg.includes('invalid-credential');
+
+      if (isEmailInUse) {
+        message = 'Alamat email ini sudah terdaftar. Silakan masuk menggunakan menu Login di bawah.';
+      } else if (isOperationNotAllowed) {
         message = 'Metode masuk Email/Sandi belum diaktifkan di Firebase Console. Silakan aktifkan di menu Authentication > Sign-in method.';
-      } else if (err.code === 'auth/weak-password') {
+      } else if (isWeakPassword) {
         message = 'Sandi terlalu lemah. Minimal harus terdiri dari 6 karakter.';
-      } else if (err.code === 'auth/invalid-email') {
+      } else if (isInvalidEmail) {
         message = 'Format alamat email tidak valid.';
-      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      } else if (isWrongCredential) {
         message = 'Email atau kata sandi salah. Silakan coba lagi.';
       }
+      
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -118,7 +133,7 @@ export default function ClaimModal({ citizens, isOpen, onClose, onSuccess }: Cla
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-brand-primary" />
             <span className="font-extrabold text-xs uppercase tracking-wider text-brand-dark font-display">
-              {isRegisterMode ? 'Klaim Rumah (Verifikasi)' : 'Masuk Akun Warga'}
+              {isRegisterMode ? 'Daftar Akun Baru' : 'Login Akun Warga'}
             </span>
           </div>
           <button 
@@ -132,9 +147,23 @@ export default function ClaimModal({ citizens, isOpen, onClose, onSuccess }: Cla
         {/* Content Form */}
         <form onSubmit={handleAuthAction} className="p-6 overflow-y-auto space-y-4 text-xs">
           {errorMsg && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl flex gap-2 items-start">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-              <p className="text-[10px] leading-relaxed font-bold">{errorMsg}</p>
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl flex flex-col gap-2">
+              <div className="flex gap-2 items-start">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                <p className="text-[10px] leading-relaxed font-bold">{errorMsg}</p>
+              </div>
+              {errorMsg.includes('sudah terdaftar') && isRegisterMode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegisterMode(false);
+                    setErrorMsg('');
+                  }}
+                  className="mt-1 self-start bg-rose-100 hover:bg-rose-200 text-rose-800 font-extrabold px-3 py-1.5 rounded-lg text-[9px] transition cursor-pointer"
+                >
+                  Beralih ke Menu Login &rarr;
+                </button>
+              )}
             </div>
           )}
 
@@ -256,9 +285,9 @@ export default function ClaimModal({ citizens, isOpen, onClose, onSuccess }: Cla
             {loading ? (
               <span className="animate-spin text-xs">⏳</span>
             ) : isRegisterMode ? (
-              'Klaim & Verifikasi Sekarang 🛡️'
+              'Daftar & Verifikasi Sekarang 🛡️'
             ) : (
-              'Masuk ke Akun Warga 🔓'
+              'Login ke Akun Warga 🔓'
             )}
           </button>
 
@@ -273,8 +302,8 @@ export default function ClaimModal({ citizens, isOpen, onClose, onSuccess }: Cla
               className="text-[10px] text-brand-primary hover:underline font-bold"
             >
               {isRegisterMode 
-                ? 'Sudah klaim rumah Anda? Masuk ke akun Anda di sini' 
-                : 'Belum klaim rumah Anda? Klaim & verifikasi di sini'}
+                ? 'Sudah punya akun? Login di sini' 
+                : 'Belum punya akun? Daftar & verifikasi di sini'}
             </button>
           </div>
         </form>
