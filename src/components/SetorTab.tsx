@@ -87,14 +87,22 @@ export default function SetorTab({ citizens, onAddSetor, currentUser }: SetorTab
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           {/* Address selection */}
           <div className="space-y-1">
-            <label className="block font-bold text-brand-muted uppercase tracking-wide">
-              No Rumah / Blok (RT 005)
-            </label>
+            <div className="flex justify-between items-center">
+              <label className="block font-bold text-brand-muted uppercase tracking-wide">
+                No Rumah / Blok (RT 005)
+              </label>
+              {currentUser?.isVerified && (
+                <span className="text-[9px] text-green-700 font-extrabold bg-green-100 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                  🔒 Alamat Terkunci (Terverifikasi)
+                </span>
+              )}
+            </div>
             <select 
               value={selectedId} 
               onChange={handleAddressChange} 
               required
-              className="w-full px-3 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-xs bg-white text-brand-text"
+              disabled={!!currentUser?.isVerified}
+              className="w-full px-3 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-xs bg-white text-brand-text disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
             >
               <option value="" disabled>Pilih Blok & No Rumah Anda</option>
               {citizens.map(c => (
@@ -107,16 +115,24 @@ export default function SetorTab({ citizens, onAddSetor, currentUser }: SetorTab
 
           {/* Resident Name */}
           <div className="space-y-1">
-            <label className="block font-bold text-brand-muted uppercase tracking-wide">
-              Nama Penghuni / Pengirim
-            </label>
+            <div className="flex justify-between items-center">
+              <label className="block font-bold text-brand-muted uppercase tracking-wide">
+                Nama Penghuni / Pengirim
+              </label>
+              {currentUser?.isVerified && (
+                <span className="text-[9px] text-green-700 font-extrabold bg-green-100 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                  🔒 Nama Terkunci (Anti-Spoof)
+                </span>
+              )}
+            </div>
             <input 
               type="text" 
               value={reporterName}
               onChange={(e) => setReporterName(e.target.value)}
               placeholder="Contoh: Pak Hendra / Bu Rahmi" 
               required
-              className="w-full px-3 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-xs text-brand-text bg-white"
+              disabled={!!currentUser?.isVerified}
+              className="w-full px-3 py-2.5 rounded-xl border border-brand-border focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent text-xs text-brand-text bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
             />
           </div>
 

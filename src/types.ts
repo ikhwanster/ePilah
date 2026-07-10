@@ -6,6 +6,10 @@ export interface Citizen {
   points: number;
   weight: number;
   lastActive: string;
+  claimedBy?: string;
+  email?: string;
+  phone?: string;
+  isVerified?: boolean;
 }
 
 export interface ActivityLog {
@@ -19,6 +23,7 @@ export interface ActivityLog {
   icon: string;
   bg: string;
   isNew?: boolean;
+  timestamp?: any;
 }
 
 export interface WasteGuideItem {

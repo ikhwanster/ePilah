@@ -21,6 +21,8 @@ interface DashboardTabProps {
   currentUser?: Citizen | null;
   onOpenOnboarding?: () => void;
   onClearProfile?: () => void;
+  onOpenClaim?: () => void;
+  onLogout?: () => void;
 }
 
 export default function DashboardTab({
@@ -38,6 +40,8 @@ export default function DashboardTab({
   currentUser,
   onOpenOnboarding,
   onClearProfile,
+  onOpenClaim,
+  onLogout,
 }: DashboardTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,28 +83,66 @@ export default function DashboardTab({
         <div className="bg-brand-card p-4 rounded-2xl border border-brand-border shadow-xs space-y-3">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
-              <div className="bg-brand-primary text-white w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm select-none shadow-sm">
+              <div className="bg-brand-primary text-white w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm select-none shadow-sm relative">
                 🏡
+                {currentUser.isVerified && (
+                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[7px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white font-black" title="Terverifikasi">
+                    ✓
+                  </span>
+                )}
               </div>
               <div>
-                <h3 className="text-xs font-black text-brand-dark leading-tight flex items-center gap-1.5">
-                  Halo, {currentUser.name}
+                <h3 className="text-xs font-black text-brand-dark leading-tight flex flex-wrap items-center gap-1.5">
+                  <span>Halo, {currentUser.name}</span>
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${userLevel?.color}`}>
                     {userLevel?.name}
                   </span>
+                  {currentUser.isVerified && (
+                    <span className="text-[8px] px-1.5 py-0.2 bg-green-100 text-green-800 border border-green-200 rounded-full font-black flex items-center gap-0.5">
+                      Terverifikasi 🛡️
+                    </span>
+                  )}
                 </h3>
                 <p className="text-[10px] text-brand-muted font-mono mt-0.5">
                   Profil Rumah: Blok {currentUser.block} No. {currentUser.houseNo}
                 </p>
+                {currentUser.isVerified && (
+                  <p className="text-[8px] text-brand-muted font-mono mt-0.5">
+                    Email: {currentUser.email} • WA: {currentUser.phone}
+                  </p>
+                )}
               </div>
             </div>
-            <button 
-              onClick={onClearProfile}
-              className="text-[10px] text-brand-muted hover:text-rose-600 font-extrabold underline cursor-pointer"
-              title="Ganti atau hapus profil rumah Anda"
-            >
-              Ganti
-            </button>
+            
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              {currentUser.isVerified ? (
+                <button 
+                  onClick={onLogout}
+                  className="text-[9px] text-rose-600 hover:text-rose-800 font-extrabold underline cursor-pointer"
+                  title="Keluar dari akun Anda"
+                >
+                  Keluar
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button 
+                    onClick={onOpenClaim}
+                    className="text-[9px] text-brand-primary hover:text-brand-dark font-extrabold underline cursor-pointer"
+                    title="Verifikasi rumah Anda"
+                  >
+                    Verifikasi
+                  </button>
+                  <span className="text-brand-border text-[9px]">|</span>
+                  <button 
+                    onClick={onClearProfile}
+                    className="text-[9px] text-brand-muted hover:text-rose-600 font-extrabold underline cursor-pointer"
+                    title="Ganti atau hapus profil rumah"
+                  >
+                    Ganti
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-between items-center text-xs border-t border-brand-border pt-3">
@@ -128,6 +170,21 @@ export default function DashboardTab({
             </div>
           </div>
 
+          {/* Prompt to verify if guest */}
+          {!currentUser.isVerified && (
+            <div className="bg-[#D6E8C1]/30 p-2.5 rounded-xl border border-brand-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5">
+              <p className="text-[9px] text-brand-muted leading-tight">
+                🔒 Rumah Anda belum diverifikasi. Lindungi akun & cegah manipulasi skor sekarang!
+              </p>
+              <button
+                onClick={onOpenClaim}
+                className="bg-brand-primary hover:bg-[#5C724D] text-white font-black text-[9px] px-2.5 py-1 rounded-lg shrink-0 transition"
+              >
+                Verifikasi 🛡️
+              </button>
+            </div>
+          )}
+
           {onOpenOnboarding && (
             <div className="flex justify-end pt-0.5">
               <button 
@@ -150,12 +207,20 @@ export default function DashboardTab({
               Hubungkan dasbor ini dengan nomor rumah Anda untuk melacak poin dan klaim setoran sampah.
             </p>
           </div>
-          <button 
-            onClick={onOpenOnboarding}
-            className="bg-brand-primary hover:bg-[#5C724D] text-white font-extrabold text-[10px] px-3 py-2 rounded-xl transition shrink-0 shadow-sm cursor-pointer"
-          >
-            Mulai Setup
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button 
+              onClick={onOpenClaim}
+              className="bg-brand-primary hover:bg-[#5C724D] text-white font-extrabold text-[10px] px-3 py-2 rounded-xl transition shadow-sm cursor-pointer"
+            >
+              Klaim & Masuk
+            </button>
+            <button 
+              onClick={onOpenOnboarding}
+              className="bg-brand-card hover:bg-brand-border text-brand-dark border border-brand-border font-extrabold text-[10px] px-3 py-2 rounded-xl transition shadow-sm cursor-pointer"
+            >
+              Cari Rumah
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,6 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Citizen, ActivityLog, TabId } from './types';
 import { fallbackCitizens } from './data';
+import { AnimatePresence } from 'motion/react';
+
+import { 
+  onAuthStateChanged, 
+  signOut 
+} from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  addDoc, 
+  getDocs, 
+  writeBatch,
+  query,
+  orderBy,
+  limit,
+  serverTimestamp,
+  where
+} from 'firebase/firestore';
+import { auth, db } from './lib/firebase';
+import ClaimModal from './components/ClaimModal';
 
 // Import subcomponents
 import AndroidFrame from './components/AndroidFrame';
@@ -14,12 +36,16 @@ import OnboardingFlow from './components/OnboardingFlow';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
-  const [citizens, setCitizens] = useState<Citizen[]>(fallbackCitizens);
+  const [citizens, setCitizens] = useState<Citizen[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+
+  // Firebase Auth and Claim State
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState<boolean>(false);
 
   // CSV Connection State
   const [csvStatus, setCsvStatus] = useState<'connecting' | 'connected' | 'fallback'>('connecting');
-  const [csvMessage, setCsvMessage] = useState<string>('Mencari file Data_Warga_Terurut.csv...');
+  const [csvMessage, setCsvMessage] = useState<string>('Menghubungkan ke Cloud Firestore...');
 
   // Toast Alerts State
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -27,14 +53,7 @@ export default function App() {
   const [toastVisible, setToastVisible] = useState<boolean>(false);
 
   // User Profile and Onboarding State
-  const [currentUser, setCurrentUser] = useState<Citizen | null>(() => {
-    try {
-      const saved = localStorage.getItem('epilah_current_user_rt005');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState<Citizen | null>(null);
 
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
     return localStorage.getItem('epilah_onboarding_completed_rt005') !== 'true';
@@ -61,29 +80,153 @@ export default function App() {
     );
   };
 
-  const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto fetch CSV data from Vite public directory on start
+  // Real-time Firestore Sync for Citizens and Activity Logs
   useEffect(() => {
-    loadCSVData();
+    setCsvStatus('connecting');
+    setCsvMessage('Menghubungkan ke Cloud Database...');
+
+    // 1. Subscribe to Citizens
+    const unsubscribeCitizens = onSnapshot(collection(db, 'citizens'), async (snapshot) => {
+      if (snapshot.empty) {
+        setCsvMessage('Seeding database RT 005 ke Cloud...');
+        try {
+          const batch = writeBatch(db);
+          fallbackCitizens.forEach((citizen) => {
+            const docRef = doc(db, 'citizens', citizen.id);
+            batch.set(docRef, {
+              ...citizen,
+              points: citizen.points,
+              weight: citizen.weight,
+              lastActive: citizen.lastActive
+            });
+          });
+          await batch.commit();
+          setCsvStatus('connected');
+          setCsvMessage('Cloud Database RT 005 berhasil diinisialisasi.');
+          triggerToast('Berhasil menginisialisasi Cloud Database RT 005! ☁️');
+        } catch (err) {
+          console.error('Gagal melakukan seeding:', err);
+          setCsvStatus('fallback');
+          setCsvMessage('Koneksi Cloud Gagal. Menjalankan fallback database lokal.');
+          setCitizens(fallbackCitizens);
+        }
+      } else {
+        const list: Citizen[] = [];
+        snapshot.forEach((doc) => {
+          list.push(doc.data() as Citizen);
+        });
+        setCitizens(list);
+        setCsvStatus('connected');
+        setCsvMessage(`Server Real-Time Terhubung. Sinkronisasi ${list.length} rumah warga.`);
+      }
+    }, (err) => {
+      console.error('Firestore citizens subscription error:', err);
+      setCsvStatus('fallback');
+      setCsvMessage('Gagal tersambung ke server real-time.');
+      setCitizens(fallbackCitizens);
+    });
+
+    // 2. Subscribe to Activity Logs (Retrieve all, sort locally to bypass indexing errors)
+    const unsubscribeLogs = onSnapshot(collection(db, 'activityLogs'), (snapshot) => {
+      const list: ActivityLog[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        let timestampDate = new Date();
+        if (data.timestamp) {
+          if (typeof data.timestamp.toDate === 'function') {
+            timestampDate = data.timestamp.toDate();
+          } else {
+            timestampDate = new Date(data.timestamp);
+          }
+        }
+        list.push({
+          id: doc.id,
+          name: data.name,
+          house: data.house,
+          type: data.type,
+          amount: data.amount,
+          points: data.points,
+          time: data.time || 'Baru saja',
+          timestamp: timestampDate,
+          icon: data.icon,
+          bg: data.bg,
+          isNew: data.isNew || false,
+        });
+      });
+
+      // Local Descending Sort by Timestamp
+      list.sort((a, b) => {
+        const timeA = a.timestamp ? (a.timestamp as Date).getTime() : 0;
+        const timeB = b.timestamp ? (b.timestamp as Date).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      setActivityLogs(list.slice(0, 15));
+    }, (err) => {
+      console.error('Firestore activityLogs subscription error:', err);
+    });
+
     return () => {
-      if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+      unsubscribeCitizens();
+      unsubscribeLogs();
     };
   }, []);
 
-  // Keep active profile in sync with live score changes in citizens list
+  // 3. Real-time Firebase Authentication Sync & Verified Citizen Matcher
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        // Query citizen where claimedBy === user.uid
+        const q = query(collection(db, 'citizens'), where('claimedBy', '==', user.uid));
+        try {
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            const matchedCitizen = snapshot.docs[0].data() as Citizen;
+            setCurrentUser(matchedCitizen);
+            localStorage.setItem('epilah_current_user_rt005', JSON.stringify(matchedCitizen));
+          }
+        } catch (err) {
+          console.error("Gagal sinkronisasi data user terverifikasi:", err);
+        }
+      } else {
+        // Logged out
+        const saved = localStorage.getItem('epilah_current_user_rt005');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed.isVerified) {
+              setCurrentUser(null);
+              localStorage.removeItem('epilah_current_user_rt005');
+            } else {
+              setCurrentUser(parsed);
+            }
+          } catch {
+            setCurrentUser(null);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  // 4. Keep currentUser profile stats synced with live updates from Firestore
   useEffect(() => {
     if (currentUser) {
       const match = citizens.find(c => c.id === currentUser.id);
-      if (match && (match.points !== currentUser.points || match.weight !== currentUser.weight)) {
+      if (match && (match.points !== currentUser.points || match.weight !== currentUser.weight || match.isVerified !== currentUser.isVerified)) {
         setCurrentUser(match);
         localStorage.setItem('epilah_current_user_rt005', JSON.stringify(match));
       }
     }
   }, [citizens]);
 
-  const handleCompleteOnboarding = (selectedCitizen: Citizen) => {
+  const handleCompleteOnboarding = async (selectedCitizen: Citizen) => {
     setCurrentUser(selectedCitizen);
     localStorage.setItem('epilah_current_user_rt005', JSON.stringify(selectedCitizen));
     localStorage.setItem('epilah_onboarding_completed_rt005', 'true');
@@ -97,6 +240,17 @@ export default function App() {
     triggerToast('Profil terhapus. Anda dapat mengatur ulang lewat menu dasbor.', 'bg-[#44483D]');
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('epilah_current_user_rt005');
+      setCurrentUser(null);
+      triggerToast('Berhasil keluar dari akun warga.', 'bg-[#44483D]');
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
   const triggerToast = (message: string, colorClass: string = 'bg-brand-primary') => {
     setToastMessage(message);
     setToastColor(colorClass);
@@ -107,7 +261,7 @@ export default function App() {
   };
 
   // CSV parsing engine
-  const parseCSVText = (csvText: string) => {
+  const parseCSVText = async (csvText: string) => {
     try {
       const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
       if (lines.length < 2) {
@@ -137,7 +291,6 @@ export default function App() {
       const parsed: Citizen[] = [];
 
       for (let i = 1; i < lines.length; i++) {
-        // Parse row handling quotes
         const rowText = lines[i];
         let cells: string[] = [];
         let currentCell = '';
@@ -191,7 +344,6 @@ export default function App() {
           normalizedBlock = 'Blok ' + normalizedBlock;
         }
 
-        // Clean double "Blok Blok" if already prefixed
         if (normalizedBlock.toLowerCase().startsWith('blok blok')) {
           normalizedBlock = normalizedBlock.substring(5);
         }
@@ -210,39 +362,37 @@ export default function App() {
       }
 
       if (parsed.length > 0) {
-        setCitizens(parsed);
+        setCsvStatus('connecting');
+        setCsvMessage('Menyinkronkan data CSV ke cloud...');
+        const batch = writeBatch(db);
+        parsed.forEach((citizen) => {
+          const docRef = doc(db, 'citizens', citizen.id);
+          batch.set(docRef, {
+            id: citizen.id,
+            block: citizen.block,
+            houseNo: citizen.houseNo,
+            name: citizen.name,
+            points: citizen.points,
+            weight: citizen.weight,
+            lastActive: citizen.lastActive
+          }, { merge: true });
+        });
+        await batch.commit();
         setCsvStatus('connected');
-        setCsvMessage(`Terhubung: Memuat ${parsed.length} rumah dari database RT 005.`);
-        triggerToast(`Sukses memuat ${parsed.length} rumah warga!`);
-        startSimulatedFeed(parsed);
+        setCsvMessage(`Terhubung: Memperbarui ${parsed.length} rumah dari data CSV.`);
+        triggerToast(`Berhasil sinkronisasi ${parsed.length} rumah ke cloud! 🎉`);
       } else {
         throw new Error('Hasil parse data kosong');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setCsvStatus('fallback');
-      setCsvMessage('Mode Fallback: Gagal membaca database CSV. Menggunakan data lokal bawaan.');
-      triggerToast('Gagal parse CSV, mengaktifkan data lokal.', 'bg-rose-600');
-      startSimulatedFeed(fallbackCitizens);
+      triggerToast('Gagal memproses data CSV.', 'bg-rose-600');
     }
   };
 
   const loadCSVData = async () => {
-    setCsvStatus('connecting');
-    setCsvMessage('Menghubungkan ke Data_Warga_Terurut.csv...');
-    try {
-      const response = await fetch('/Data_Warga_Terurut.csv');
-      if (!response.ok) {
-        throw new Error('Gagal fetch otomatis');
-      }
-      const text = await response.text();
-      parseCSVText(text);
-    } catch (e) {
-      console.warn('Auto CSV load failed. Falling back to internal state.', e);
-      setCsvStatus('fallback');
-      setCsvMessage('Mode Fallback: Database CSV belum diunggah. Menggunakan data lokal bawaan.');
-      startSimulatedFeed(fallbackCitizens);
-    }
+    setCsvStatus('connected');
+    setCsvMessage('Server Real-Time Terhubung. Sinkronisasi Aktif.');
   };
 
   // Handle manual CSV uploads
@@ -251,93 +401,17 @@ export default function App() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string;
       if (text) {
-        parseCSVText(text);
+        await parseCSVText(text);
       }
     };
     reader.readAsText(file);
   };
 
-  // Background Simulator Engine
-  const startSimulatedFeed = (currentCitizens: Citizen[]) => {
-    if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-
-    // Initial pre-fill simulation feed logs (4 entries)
-    const initialLogs: ActivityLog[] = [];
-    const wastePresets = [
-      { type: 'Plastik Bersih', unit: 'Kg', multiplier: 15, icon: '🥤', bg: 'bg-[#D6E8C1]/30' },
-      { type: 'Kertas & Karton', unit: 'Kg', multiplier: 10, icon: '📦', bg: 'bg-[#E7E9DE]/60' },
-      { type: 'Kaleng Alumunium', unit: 'Kg', multiplier: 20, icon: '🥫', bg: 'bg-[#D6E8C1]/30' },
-      { type: 'Minyak Jelantah', unit: 'Liter', multiplier: 25, icon: '🍯', bg: 'bg-[#E7E9DE]/90' },
-      { type: 'Sampah Organik', unit: 'Kg', multiplier: 5, icon: '🌱', bg: 'bg-[#D6E8C1]/50' },
-    ];
-
-    for (let i = 0; i < 4; i++) {
-      const resident = currentCitizens[Math.floor(Math.random() * currentCitizens.length)];
-      const preset = wastePresets[Math.floor(Math.random() * wastePresets.length)];
-      const w = parseFloat((Math.random() * 5 + 0.8).toFixed(1));
-      const calculatedPoints = Math.round(w * preset.multiplier);
-      const minutesAgo = Math.floor(Math.random() * 50 + 5);
-
-      initialLogs.push({
-        id: `sim-hist-${i}-${Date.now()}`,
-        name: resident.name,
-        house: `${resident.block}-${resident.houseNo}`,
-        type: preset.type,
-        amount: `${w} ${preset.unit}`,
-        points: calculatedPoints,
-        time: `${minutesAgo} menit lalu`,
-        icon: preset.icon,
-        bg: preset.bg,
-      });
-    }
-    setActivityLogs(initialLogs);
-
-    // Periodic generator every 9 seconds
-    simulationIntervalRef.current = setInterval(() => {
-      setCitizens(prevCitizens => {
-        if (prevCitizens.length === 0) return prevCitizens;
-        const index = Math.floor(Math.random() * prevCitizens.length);
-        const resident = { ...prevCitizens[index] };
-        
-        const preset = wastePresets[Math.floor(Math.random() * wastePresets.length)];
-        const w = parseFloat((Math.random() * 4 + 1.2).toFixed(1));
-        const calculatedPoints = Math.round(w * preset.multiplier);
-
-        // Update target resident stats
-        resident.points += calculatedPoints;
-        resident.weight += w;
-        resident.lastActive = 'Baru saja';
-
-        const updated = [...prevCitizens];
-        updated[index] = resident;
-
-        // Push new log to feed
-        setActivityLogs(prevLogs => {
-          const newLog: ActivityLog = {
-            id: `sim-live-${Date.now()}`,
-            name: resident.name,
-            house: `${resident.block}-${resident.houseNo}`,
-            type: preset.type,
-            amount: `${w} ${preset.unit}`,
-            points: calculatedPoints,
-            time: 'Baru saja',
-            icon: preset.icon,
-            bg: preset.bg,
-            isNew: true,
-          };
-          return [newLog, ...prevLogs.slice(0, 11)];
-        });
-
-        return updated;
-      });
-    }, 9000);
-  };
-
-  // Add custom manual drop-off report
-  const handleAddSetor = (citizenId: string, reporterName: string, wasteType: string, weight: number) => {
+  // Add custom real-time Firestore trash drop-off report
+  const handleAddSetor = async (citizenId: string, reporterName: string, wasteType: string, weight: number) => {
     const presetMap: Record<string, { display: string, unit: string, mult: number, icon: string, bg: string }> = {
       plastik: { display: 'Plastik Bersih', unit: 'Kg', mult: 15, icon: '🥤', bg: 'bg-[#D6E8C1]/30' },
       kertas: { display: 'Kertas/Kardus', unit: 'Kg', mult: 10, icon: '📦', bg: 'bg-[#E7E9DE]/60' },
@@ -349,81 +423,79 @@ export default function App() {
     const preset = presetMap[wasteType];
     const earnedPoints = Math.round(weight * preset.mult);
 
-    setCitizens(prev => {
-      const idx = prev.findIndex(c => c.id === citizenId);
-      if (idx === -1) return prev;
+    try {
+      const citizenRef = doc(db, 'citizens', citizenId);
+      const targetCit = citizens.find(c => c.id === citizenId);
+      
+      if (!targetCit) {
+        throw new Error('Warga tidak ditemukan');
+      }
 
-      const updatedCit = { ...prev[idx] };
-      updatedCit.points += earnedPoints;
-      updatedCit.weight += weight;
-      updatedCit.lastActive = 'Setor Manual';
-
-      const copy = [...prev];
-      copy[idx] = updatedCit;
-
-      // Inject new log entry
-      setActivityLogs(prevLogs => {
-        const customLog: ActivityLog = {
-          id: `manual-setor-${Date.now()}`,
-          name: reporterName,
-          house: `${updatedCit.block}-${updatedCit.houseNo}`,
-          type: preset.display,
-          amount: `${weight} ${preset.unit}`,
-          points: earnedPoints,
-          time: 'Baru saja',
-          icon: preset.icon,
-          bg: preset.bg,
-          isNew: true,
-        };
-        return [customLog, ...prevLogs.slice(0, 11)];
+      await updateDoc(citizenRef, {
+        points: (targetCit.points || 0) + earnedPoints,
+        weight: (targetCit.weight || 0) + weight,
+        lastActive: 'Setor Sampah'
       });
 
-      return copy;
-    });
+      await addDoc(collection(db, 'activityLogs'), {
+        name: reporterName,
+        house: `${targetCit.block}-${targetCit.houseNo}`,
+        type: preset.display,
+        amount: `${weight} ${preset.unit}`,
+        points: earnedPoints,
+        time: 'Baru saja',
+        timestamp: new Date(),
+        icon: preset.icon,
+        bg: preset.bg,
+        isNew: true
+      });
 
-    triggerToast(`Sukses! +${earnedPoints} Poin dicatatkan untuk ${citizenId.replace('Blok', 'Blok ')}.`);
-    
+      triggerToast(`Sukses! +${earnedPoints} Poin dicatatkan secara Real-Time.`);
+    } catch (err: any) {
+      console.error(err);
+      triggerToast('Gagal menyetor data ke cloud server.', 'bg-rose-600');
+    }
+
     // Switch to home tab
     setTimeout(() => {
       setActiveTab('dashboard');
     }, 800);
   };
 
-  // Handle deposition of game points
-  const handleDepositBonus = (citizenId: string, bonusPoints: number) => {
-    setCitizens(prev => {
-      const idx = prev.findIndex(c => c.id === citizenId);
-      if (idx === -1) return prev;
+  // Handle deposition of game points to Cloud Firestore
+  const handleDepositBonus = async (citizenId: string, bonusPoints: number) => {
+    try {
+      const citizenRef = doc(db, 'citizens', citizenId);
+      const targetCit = citizens.find(c => c.id === citizenId);
 
-      const updatedCit = { ...prev[idx] };
-      updatedCit.points += bonusPoints;
-      updatedCit.lastActive = 'Main Game';
+      if (!targetCit) {
+        throw new Error('Warga tidak ditemukan');
+      }
 
-      const copy = [...prev];
-      copy[idx] = updatedCit;
-
-      // Inject game deposit log entry
-      setActivityLogs(prevLogs => {
-        const gameLog: ActivityLog = {
-          id: `game-bonus-${Date.now()}`,
-          name: updatedCit.name,
-          house: `${updatedCit.block}-${updatedCit.houseNo}`,
-          type: 'Skor Game Edukasi',
-          amount: `Skor ${bonusPoints}`,
-          points: bonusPoints,
-          time: 'Baru saja',
-          icon: '🎮',
-          bg: 'bg-[#D6E8C1]/50',
-          isNew: true,
-        };
-        return [gameLog, ...prevLogs.slice(0, 11)];
+      await updateDoc(citizenRef, {
+        points: (targetCit.points || 0) + bonusPoints,
+        lastActive: 'Main Game'
       });
 
-      return copy;
-    });
+      await addDoc(collection(db, 'activityLogs'), {
+        name: targetCit.name,
+        house: `${targetCit.block}-${targetCit.houseNo}`,
+        type: 'Skor Game Edukasi',
+        amount: `Skor ${bonusPoints}`,
+        points: bonusPoints,
+        time: 'Baru saja',
+        timestamp: new Date(),
+        icon: '🎮',
+        bg: 'bg-[#D6E8C1]/50',
+        isNew: true
+      });
 
-    triggerToast(`Klaim Sukses! +${bonusPoints} Poin ditransfer.`);
-    
+      triggerToast(`Klaim Sukses! +${bonusPoints} Poin ditransfer secara Real-Time.`);
+    } catch (err) {
+      console.error(err);
+      triggerToast('Gagal memproses bonus game ke cloud.', 'bg-rose-600');
+    }
+
     // Go to dashboard
     setTimeout(() => {
       setActiveTab('dashboard');
@@ -483,6 +555,8 @@ export default function App() {
             currentUser={currentUser}
             onOpenOnboarding={() => setShowOnboarding(true)}
             onClearProfile={handleClearProfile}
+            onOpenClaim={() => setIsClaimModalOpen(true)}
+            onLogout={handleLogout}
           />
         )}
 
@@ -521,6 +595,18 @@ export default function App() {
           onClose={() => setShowOnboarding(false)}
         />
       )}
+
+      {/* Verified Claim Registration and Login Modal */}
+      <AnimatePresence>
+        {isClaimModalOpen && (
+          <ClaimModal
+            citizens={citizens}
+            isOpen={isClaimModalOpen}
+            onClose={() => setIsClaimModalOpen(false)}
+            onSuccess={(msg) => triggerToast(msg, 'bg-[#738E61]')}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sticky Bottom Navigation Bar */}
       <BottomNavBar 

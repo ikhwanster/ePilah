@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Trophy, Medal, Crown, Calendar, Sparkles } from 'lucide-react';
+import { Trophy, Medal, Crown, Calendar, Sparkles, FileDown } from 'lucide-react';
 import { Citizen } from '../types';
+import { exportRecapToPDF } from '../utils/pdfExport';
 
 interface LeaderboardTabProps {
   citizens: Citizen[];
@@ -92,6 +93,21 @@ export default function LeaderboardTab({ citizens }: LeaderboardTabProps) {
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
+          </div>
+
+          {/* Export PDF Laporan Bulanan */}
+          <div className="pt-3.5 border-t border-brand-border/40">
+            <button
+              onClick={() => exportRecapToPDF(citizens, selectedBlock)}
+              className="w-full bg-[#738E61] hover:bg-[#5E754F] text-white py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-98"
+              id="btn-export-pdf"
+            >
+              <FileDown className="w-4 h-4 text-white" />
+              <span>Cetak Laporan PDF</span>
+            </button>
+            <p className="text-[10px] text-brand-muted text-center mt-1.5 font-medium leading-normal">
+              Format A4 resmi dengan tanda tangan pengurus & ringkasan statistik
+            </p>
           </div>
 
           {/* 3D-Like Visual Podium (rendered if top 3 exists) */}
